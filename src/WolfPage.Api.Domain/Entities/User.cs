@@ -1,0 +1,17 @@
+namespace WolfPage.Api.Domain.Entities;
+
+public class User
+{
+    public Guid Id { get; set; }
+    public Guid TenantId { get; set; }
+    public string Email { get; set; } = default!;
+    public string PasswordHash { get; set; } = default!;
+    public string FullName { get; set; } = default!;
+    public bool IsActive { get; set; } = true;
+    public DateTime? LastLoginAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public Tenant Tenant { get; set; } = default!;
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+}
