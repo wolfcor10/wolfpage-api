@@ -66,7 +66,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "WolfPage API",
         Version = "v1",
-        Description = "API para la plataforma WolfPage. Gestiona tenants, templates y solicitudes de generación de páginas."
+        Description = "API para la plataforma WolfPage. Gestiona workspaces, templates y solicitudes de generacion de paginas."
     });
 
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";

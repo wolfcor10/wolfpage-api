@@ -10,7 +10,7 @@ public class AppDbContext : DbContext, IAppDbContext
     {
     }
 
-    public DbSet<Tenant> Tenants => Set<Tenant>();
+    public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<Template> Templates => Set<Template>();
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
     public DbSet<PageGenerationRequest> PageGenerationRequests => Set<PageGenerationRequest>();
@@ -19,35 +19,37 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<DomainBinding> DomainBindings => Set<DomainBinding>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Tenant>(entity =>
+        modelBuilder.Entity<Workspace>(entity =>
         {
-            entity.ToTable("tenant");
+            entity.ToTable("workspace");
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Id).ValueGeneratedNever();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.WorkspaceType).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(x => x.ProfileType).HasConversion<string>().HasMaxLength(50).IsRequired();
             entity.Property(x => x.IsActive).IsRequired();
             entity.Property(x => x.CreatedAt).IsRequired();
 
             entity.HasMany(x => x.PageGenerationRequests)
-                .WithOne(x => x.Tenant)
-                .HasForeignKey(x => x.TenantId)
+                .WithOne(x => x.Workspace)
+                .HasForeignKey(x => x.WorkspaceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(x => x.Pages)
-                .WithOne(x => x.Tenant)
-                .HasForeignKey(x => x.TenantId)
+                .WithOne(x => x.Workspace)
+                .HasForeignKey(x => x.WorkspaceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasMany(x => x.Users)
-                .WithOne(x => x.Tenant)
-                .HasForeignKey(x => x.TenantId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(x => x.Members)
+                .WithOne(x => x.Workspace)
+                .HasForeignKey(x => x.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Template>(entity =>
@@ -137,7 +139,7 @@ public class AppDbContext : DbContext, IAppDbContext
                 .HasMaxLength(30)
                 .IsRequired();
 
-            entity.HasIndex(x => x.Slug).IsUnique();
+            entity.HasIndex(x => new { x.WorkspaceId, x.Slug }).IsUnique();
             entity.HasIndex(x => x.RequestId).IsUnique();
 
             entity.HasOne(x => x.TemplateVersion)
@@ -201,12 +203,17 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.Property(x => x.CreatedAt).IsRequired();
             entity.Property(x => x.UpdatedAt).IsRequired();
 
-            entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            entity.HasIndex(x => x.Email).IsUnique();
 
-            entity.HasMany(x => x.UserRoles)
+            entity.HasMany(x => x.WorkspaceMemberships)
                 .WithOne(x => x.User)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.SentWorkspaceInvitations)
+                .WithOne(x => x.InvitedByUser)
+                .HasForeignKey(x => x.InvitedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Role>(entity =>
@@ -222,18 +229,29 @@ public class AppDbContext : DbContext, IAppDbContext
 
             entity.HasIndex(x => x.Code).IsUnique();
 
-            entity.HasMany(x => x.UserRoles)
+            entity.HasMany(x => x.WorkspaceMembers)
                 .WithOne(x => x.Role)
                 .HasForeignKey(x => x.RoleId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<UserRole>(entity =>
+        modelBuilder.Entity<WorkspaceMember>(entity =>
         {
-            entity.ToTable("user_role");
-            entity.HasKey(x => new { x.UserId, x.RoleId });
+            entity.ToTable("workspace_member");
+            entity.HasKey(x => x.Id);
 
-            entity.Property(x => x.AssignedAt).IsRequired();
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+            entity.Property(x => x.JoinedAt);
+            entity.Property(x => x.InvitedAt);
+            entity.Property(x => x.RemovedAt);
+
+            entity.HasIndex(x => new { x.WorkspaceId, x.UserId, x.RoleId }).IsUnique();
+            entity.HasIndex(x => x.UserId);
+            entity.HasIndex(x => x.RoleId);
+            entity.HasIndex(x => x.InvitedByUserId);
         });
 
         base.OnModelCreating(modelBuilder);

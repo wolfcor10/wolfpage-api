@@ -8,5 +8,5 @@ public class Role
     public string Description { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 
-    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public ICollection<WorkspaceMember> WorkspaceMembers { get; set; } = new List<WorkspaceMember>();
 }

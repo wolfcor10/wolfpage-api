@@ -18,29 +18,33 @@ public class PageRequestService : IPageRequestService
     private readonly IMessagePublisher _publisher;
     private readonly ILogger<PageRequestService> _logger;
     private readonly ICurrentUser _currentUser;
+    private readonly IWorkspaceAccessService _workspaceAccess;
 
     public PageRequestService(
         IAppDbContext dbContext,
         IMessagePublisher publisher,
         ILogger<PageRequestService> logger,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IWorkspaceAccessService workspaceAccess)
     {
         _dbContext = dbContext;
         _publisher = publisher;
         _logger = logger;
         _currentUser = currentUser;
+        _workspaceAccess = workspaceAccess;
     }
 
     public async Task<PageRequestResponseDto> CreateAsync(CreatePageRequestDto dto, CancellationToken cancellationToken = default)
     {
-        if (_currentUser.TenantId is not Guid tenantId || dto.TenantId != tenantId)
-            throw new UnauthorizedAccessException("Tenant no autorizado.");
+        var workspaceId = ResolveWorkspaceId(dto.WorkspaceId);
+        if (!await _workspaceAccess.IsMemberAsync(workspaceId, cancellationToken))
+            throw new UnauthorizedAccessException("Workspace no autorizado.");
 
-        var tenantExists = await _dbContext.Tenants
-            .AnyAsync(x => x.Id == dto.TenantId && x.IsActive, cancellationToken);
+        var workspaceExists = await _dbContext.Workspaces
+            .AnyAsync(x => x.Id == workspaceId && x.IsActive, cancellationToken);
 
-        if (!tenantExists)
-            throw new InvalidOperationException($"Tenant {dto.TenantId} no existe o está inactivo.");
+        if (!workspaceExists)
+            throw new InvalidOperationException($"Workspace {workspaceId} no existe o esta inactivo.");
 
         var templateVersion = await _dbContext.TemplateVersions
             .AsNoTracking()
@@ -50,18 +54,19 @@ public class PageRequestService : IPageRequestService
             throw new InvalidOperationException($"TemplateVersion {dto.TemplateVersionId} no existe.");
 
         if (!templateVersion.IsPublished)
-            throw new InvalidOperationException($"TemplateVersion {dto.TemplateVersionId} no está publicada.");
+            throw new InvalidOperationException($"TemplateVersion {dto.TemplateVersionId} no esta publicada.");
 
-        var slugTaken = await _dbContext.Pages.AnyAsync(x => x.Slug == dto.Slug, cancellationToken);
+        var slugTaken = await _dbContext.Pages
+            .AnyAsync(x => x.WorkspaceId == workspaceId && x.Slug == dto.Slug, cancellationToken);
         if (slugTaken)
-            throw new InvalidOperationException($"El slug '{dto.Slug}' ya está en uso.");
+            throw new InvalidOperationException($"El slug '{dto.Slug}' ya esta en uso para este workspace.");
 
         var correlationId = Guid.NewGuid().ToString("N");
 
         var request = new PageGenerationRequest
         {
             Id = Guid.NewGuid(),
-            TenantId = dto.TenantId,
+            WorkspaceId = workspaceId,
             TemplateVersionId = dto.TemplateVersionId,
             CorrelationId = correlationId,
             PageName = dto.PageName,
@@ -97,12 +102,14 @@ public class PageRequestService : IPageRequestService
 
     public async Task<PageRequestResponseDto?> GetByIdAsync(Guid requestId, CancellationToken cancellationToken = default)
     {
-        var tenantId = _currentUser.TenantId ?? throw new UnauthorizedAccessException("Usuario sin tenant.");
+        var workspaceId = ResolveWorkspaceId(_currentUser.WorkspaceId);
+        if (!await _workspaceAccess.IsMemberAsync(workspaceId, cancellationToken))
+            throw new UnauthorizedAccessException("Workspace no autorizado.");
 
         var request = await _dbContext.PageGenerationRequests
             .AsNoTracking()
             .Include(x => x.Page)
-            .FirstOrDefaultAsync(x => x.Id == requestId && x.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == requestId && x.WorkspaceId == workspaceId, cancellationToken);
 
         if (request is null)
             return null;
@@ -117,5 +124,16 @@ public class PageRequestService : IPageRequestService
             CreatedAt = request.CreatedAt,
             ProcessedAt = request.ProcessedAt
         };
+    }
+
+    private Guid ResolveWorkspaceId(Guid? requestedWorkspaceId)
+    {
+        if (requestedWorkspaceId is Guid workspaceId && workspaceId != Guid.Empty)
+            return workspaceId;
+
+        if (_currentUser.WorkspaceId is Guid currentWorkspaceId && currentWorkspaceId != Guid.Empty)
+            return currentWorkspaceId;
+
+        throw new UnauthorizedAccessException("Workspace no especificado.");
     }
 }

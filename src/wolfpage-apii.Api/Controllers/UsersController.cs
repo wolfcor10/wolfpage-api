@@ -7,7 +7,7 @@ namespace WolfPage.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "RequireAdmin")]
+[Authorize]
 [Produces("application/json")]
 public class UsersController : ControllerBase
 {

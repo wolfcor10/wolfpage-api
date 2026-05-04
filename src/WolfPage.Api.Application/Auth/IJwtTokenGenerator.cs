@@ -5,5 +5,5 @@ namespace WolfPage.Api.Application.Auth;
 
 public interface IJwtTokenGenerator
 {
-    JwtTokenResult GenerateToken(User user, IReadOnlyCollection<string> roles);
+    JwtTokenResult GenerateToken(User user);
 }

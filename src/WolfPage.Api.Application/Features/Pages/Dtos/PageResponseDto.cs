@@ -3,7 +3,7 @@ namespace WolfPage.Api.Application.Features.Pages.Dtos;
 public class PageResponseDto
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public Guid TemplateVersionId { get; set; }
     public Guid RequestId { get; set; }
     public string Title { get; set; } = default!;

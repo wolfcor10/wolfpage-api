@@ -5,7 +5,7 @@ namespace WolfPage.Api.Domain.Entities;
 public class PageGenerationRequest
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public Guid TemplateVersionId { get; set; }
     public string CorrelationId { get; set; } = default!;
     public string PageName { get; set; } = default!;
@@ -16,7 +16,7 @@ public class PageGenerationRequest
     public DateTime CreatedAt { get; set; }
     public DateTime? ProcessedAt { get; set; }
 
-    public Tenant Tenant { get; set; } = default!;
+    public Workspace Workspace { get; set; } = default!;
     public TemplateVersion TemplateVersion { get; set; } = default!;
     public Page? Page { get; set; }
 }

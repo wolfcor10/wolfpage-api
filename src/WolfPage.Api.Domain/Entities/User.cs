@@ -3,7 +3,6 @@ namespace WolfPage.Api.Domain.Entities;
 public class User
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string Email { get; set; } = default!;
     public string PasswordHash { get; set; } = default!;
     public string FullName { get; set; } = default!;
@@ -12,6 +11,6 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    public Tenant Tenant { get; set; } = default!;
-    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public ICollection<WorkspaceMember> WorkspaceMemberships { get; set; } = new List<WorkspaceMember>();
+    public ICollection<WorkspaceMember> SentWorkspaceInvitations { get; set; } = new List<WorkspaceMember>();
 }

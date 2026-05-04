@@ -9,25 +9,30 @@ public class PageQueryService : IPageQueryService
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
+    private readonly IWorkspaceAccessService _workspaceAccess;
 
-    public PageQueryService(IAppDbContext dbContext, ICurrentUser currentUser)
+    public PageQueryService(
+        IAppDbContext dbContext,
+        ICurrentUser currentUser,
+        IWorkspaceAccessService workspaceAccess)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _workspaceAccess = workspaceAccess;
     }
 
     public async Task<List<PageResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var tenantId = GetTenantId();
+        var workspaceId = await GetWorkspaceIdAsync(cancellationToken);
 
         return await _dbContext.Pages
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId)
+            .Where(x => x.WorkspaceId == workspaceId)
             .OrderByDescending(x => x.CreatedAt)
             .Select(page => new PageResponseDto
             {
                 Id = page.Id,
-                TenantId = page.TenantId,
+                WorkspaceId = page.WorkspaceId,
                 TemplateVersionId = page.TemplateVersionId,
                 RequestId = page.RequestId,
                 Title = page.Title,
@@ -46,11 +51,11 @@ public class PageQueryService : IPageQueryService
 
     public async Task<PageResponseDto?> GetByIdAsync(Guid pageId, CancellationToken cancellationToken = default)
     {
-        var tenantId = GetTenantId();
+        var workspaceId = await GetWorkspaceIdAsync(cancellationToken);
 
         var page = await _dbContext.Pages
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == pageId && x.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == pageId && x.WorkspaceId == workspaceId, cancellationToken);
 
         if (page is null)
             return null;
@@ -58,7 +63,7 @@ public class PageQueryService : IPageQueryService
         return new PageResponseDto
         {
             Id = page.Id,
-            TenantId = page.TenantId,
+            WorkspaceId = page.WorkspaceId,
             TemplateVersionId = page.TemplateVersionId,
             RequestId = page.RequestId,
             Title = page.Title,
@@ -74,6 +79,13 @@ public class PageQueryService : IPageQueryService
         };
     }
 
-    private Guid GetTenantId() =>
-        _currentUser.TenantId ?? throw new UnauthorizedAccessException("Usuario sin tenant.");
+    private async Task<Guid> GetWorkspaceIdAsync(CancellationToken cancellationToken)
+    {
+        var workspaceId = _currentUser.WorkspaceId ?? throw new UnauthorizedAccessException("Workspace no especificado.");
+
+        if (!await _workspaceAccess.IsMemberAsync(workspaceId, cancellationToken))
+            throw new UnauthorizedAccessException("Workspace no autorizado.");
+
+        return workspaceId;
+    }
 }

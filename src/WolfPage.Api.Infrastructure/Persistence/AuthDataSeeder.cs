@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using WolfPage.Api.Application.Auth;
 using WolfPage.Api.Domain.Entities;
+using WolfPage.Api.Domain.Enums;
 
 namespace WolfPage.Api.Infrastructure.Persistence;
 
@@ -52,36 +53,37 @@ public class AuthDataSeeder
         var adminEmail = Read("AuthSeed:AdminEmail", "admin@wolfpage.local").Trim().ToLowerInvariant();
         var adminPassword = Read("AuthSeed:AdminPassword", "Admin123!");
         var adminFullName = Read("AuthSeed:AdminFullName", "WolfPage Admin");
-        var tenantName = Read("AuthSeed:TenantName", "WolfPage Demo");
-        var tenantEmail = Read("AuthSeed:TenantEmail", adminEmail).Trim().ToLowerInvariant();
+        var workspaceName = Read("AuthSeed:WorkspaceName", "WolfPage Demo");
+        var workspaceEmail = Read("AuthSeed:WorkspaceEmail", adminEmail).Trim().ToLowerInvariant();
 
-        var tenant = await _dbContext.Tenants.FirstOrDefaultAsync(cancellationToken);
-        if (tenant is null)
+        var workspace = await _dbContext.Workspaces.FirstOrDefaultAsync(cancellationToken);
+        if (workspace is null)
         {
-            tenant = new Tenant
+            workspace = new Workspace
             {
                 Id = Guid.NewGuid(),
-                Name = tenantName,
-                Email = tenantEmail,
+                Name = workspaceName,
+                Email = workspaceEmail,
+                WorkspaceType = WorkspaceType.Business,
+                ProfileType = ProfileType.Business,
                 IsActive = true,
                 CreatedAt = now
             };
 
-            _dbContext.Tenants.Add(tenant);
+            _dbContext.Workspaces.Add(workspace);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var adminRole = await _dbContext.Roles.FirstAsync(x => x.Code == "admin", cancellationToken);
         var adminUser = await _dbContext.Users
-            .Include(x => x.UserRoles)
-            .FirstOrDefaultAsync(x => x.TenantId == tenant.Id && x.Email == adminEmail, cancellationToken);
+            .Include(x => x.WorkspaceMemberships)
+            .FirstOrDefaultAsync(x => x.Email == adminEmail, cancellationToken);
 
         if (adminUser is null)
         {
             adminUser = new User
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
                 Email = adminEmail,
                 FullName = adminFullName,
                 IsActive = true,
@@ -89,26 +91,28 @@ public class AuthDataSeeder
                 UpdatedAt = now
             };
             adminUser.PasswordHash = _passwordHasher.HashPassword(adminUser, adminPassword);
-            adminUser.UserRoles.Add(new UserRole
-            {
-                UserId = adminUser.Id,
-                RoleId = adminRole.Id,
-                AssignedAt = now
-            });
 
             _dbContext.Users.Add(adminUser);
             await _dbContext.SaveChangesAsync(cancellationToken);
-            return;
         }
 
-        var hasAdminRole = adminUser.UserRoles.Any(x => x.RoleId == adminRole.Id);
-        if (!hasAdminRole)
+        var hasAdminMembership = adminUser.WorkspaceMemberships.Any(
+            x => x.WorkspaceId == workspace.Id
+                && x.RoleId == adminRole.Id
+                && x.Status == WorkspaceMemberStatus.Active);
+
+        if (!hasAdminMembership)
         {
-            adminUser.UserRoles.Add(new UserRole
+            adminUser.WorkspaceMemberships.Add(new WorkspaceMember
             {
+                Id = Guid.NewGuid(),
                 UserId = adminUser.Id,
                 RoleId = adminRole.Id,
-                AssignedAt = now
+                WorkspaceId = workspace.Id,
+                Status = WorkspaceMemberStatus.Active,
+                CreatedAt = now,
+                UpdatedAt = now,
+                JoinedAt = now
             });
 
             await _dbContext.SaveChangesAsync(cancellationToken);

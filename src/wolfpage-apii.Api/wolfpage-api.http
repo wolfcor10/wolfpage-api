@@ -1,16 +1,18 @@
 @wolfpage_api_HostAddress = http://localhost:5141
 
-### Crear tenant
-POST {{wolfpage_api_HostAddress}}/api/tenants
+### Crear workspace
+POST {{wolfpage_api_HostAddress}}/api/workspaces
 Content-Type: application/json
 
 {
   "name": "Mi Negocio",
-  "email": "demo@minegocio.com"
+  "email": "demo@minegocio.com",
+  "workspaceType": "Business",
+  "profileType": "Business"
 }
 
-### Listar tenants
-GET {{wolfpage_api_HostAddress}}/api/tenants
+### Listar workspaces
+GET {{wolfpage_api_HostAddress}}/api/workspaces
 Accept: application/json
 
 ### Listar templates publicados
@@ -22,7 +24,7 @@ POST {{wolfpage_api_HostAddress}}/api/pages/generate
 Content-Type: application/json
 
 {
-  "tenantId": "00000000-0000-0000-0000-000000000000",
+  "workspaceId": "00000000-0000-0000-0000-000000000000",
   "templateVersionId": "00000000-0000-0000-0000-000000000000",
   "pageName": "Página de inicio",
   "slug": "pagina-de-inicio",

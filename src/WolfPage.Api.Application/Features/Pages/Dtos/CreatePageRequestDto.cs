@@ -2,7 +2,7 @@ namespace WolfPage.Api.Application.Features.Pages.Dtos;
 
 public class CreatePageRequestDto
 {
-    public Guid TenantId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public Guid TemplateVersionId { get; set; }
     public string PageName { get; set; } = default!;
     public string Slug { get; set; } = default!;

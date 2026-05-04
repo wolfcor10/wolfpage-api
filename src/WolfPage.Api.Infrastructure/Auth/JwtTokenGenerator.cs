@@ -19,7 +19,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _options = options.Value;
     }
 
-    public JwtTokenResult GenerateToken(User user, IReadOnlyCollection<string> roles)
+    public JwtTokenResult GenerateToken(User user)
     {
         if (string.IsNullOrWhiteSpace(_options.SecretKey) || Encoding.UTF8.GetByteCount(_options.SecretKey) < 32)
             throw new InvalidOperationException("Jwt:SecretKey debe tener al menos 32 bytes.");
@@ -30,11 +30,8 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
-            new("tenant_id", user.TenantId.ToString()),
             new("name", user.FullName)
         };
-
-        claims.AddRange(roles.Select(role => new Claim("role", role)));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
