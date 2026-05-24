@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/wolfpage-apii.Api/wolfpage-api.Api.csproj" />
+  <Project Path="src/WolfPage.Api.Application/WolfPage.Api.Application.csproj" />
+  <Project Path="src/WolfPage.Api.Domain/WolfPage.Api.Domain.csproj" />
+  <Project Path="src/WolfPage.Api.Infrastructure/WolfPage.Api.Infrastructure.csproj" />
+</Solution>

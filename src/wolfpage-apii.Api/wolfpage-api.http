@@ -1,0 +1,43 @@
+@wolfpage_api_HostAddress = http://localhost:5141
+
+### Crear workspace
+POST {{wolfpage_api_HostAddress}}/api/workspaces
+Content-Type: application/json
+
+{
+  "name": "Mi Negocio",
+  "email": "demo@minegocio.com",
+  "workspaceType": "Business",
+  "profileType": "Business"
+}
+
+### Listar workspaces
+GET {{wolfpage_api_HostAddress}}/api/workspaces
+Accept: application/json
+
+### Listar templates publicados
+GET {{wolfpage_api_HostAddress}}/api/templates
+Accept: application/json
+
+### Generar página (publica mensaje al Worker)
+POST {{wolfpage_api_HostAddress}}/api/pages/generate
+Content-Type: application/json
+
+{
+  "workspaceId": "00000000-0000-0000-0000-000000000000",
+  "templateVersionId": "00000000-0000-0000-0000-000000000000",
+  "pageName": "Página de inicio",
+  "slug": "pagina-de-inicio",
+  "content": {
+    "title": "Bienvenido",
+    "subtitle": "Demo del generador"
+  }
+}
+
+### Consultar estado de la solicitud
+GET {{wolfpage_api_HostAddress}}/api/pages/requests/{requestId}
+Accept: application/json
+
+### Obtener página generada
+GET {{wolfpage_api_HostAddress}}/api/pages/{pageId}
+Accept: application/json

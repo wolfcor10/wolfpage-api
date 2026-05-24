@@ -1,0 +1,139 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using WolfPage.Api.Application.Auth;
+using WolfPage.Api.Application.Features.Pages.Dtos;
+using WolfPage.Api.Application.Messaging;
+using WolfPage.Api.Application.Persistence;
+using WolfPage.Api.Domain.Entities;
+using WolfPage.Api.Domain.Enums;
+
+namespace WolfPage.Api.Application.Features.Pages.Services;
+
+public class PageRequestService : IPageRequestService
+{
+    private const string PageGenerationQueue = "site.generate";
+
+    private readonly IAppDbContext _dbContext;
+    private readonly IMessagePublisher _publisher;
+    private readonly ILogger<PageRequestService> _logger;
+    private readonly ICurrentUser _currentUser;
+    private readonly IWorkspaceAccessService _workspaceAccess;
+
+    public PageRequestService(
+        IAppDbContext dbContext,
+        IMessagePublisher publisher,
+        ILogger<PageRequestService> logger,
+        ICurrentUser currentUser,
+        IWorkspaceAccessService workspaceAccess)
+    {
+        _dbContext = dbContext;
+        _publisher = publisher;
+        _logger = logger;
+        _currentUser = currentUser;
+        _workspaceAccess = workspaceAccess;
+    }
+
+    public async Task<PageRequestResponseDto> CreateAsync(CreatePageRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        var workspaceId = ResolveWorkspaceId(dto.WorkspaceId);
+        if (!await _workspaceAccess.IsMemberAsync(workspaceId, cancellationToken))
+            throw new UnauthorizedAccessException("Workspace no autorizado.");
+
+        var workspaceExists = await _dbContext.Workspaces
+            .AnyAsync(x => x.Id == workspaceId && x.IsActive, cancellationToken);
+
+        if (!workspaceExists)
+            throw new InvalidOperationException($"Workspace {workspaceId} no existe o esta inactivo.");
+
+        var templateVersion = await _dbContext.TemplateVersions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == dto.TemplateVersionId, cancellationToken);
+
+        if (templateVersion is null)
+            throw new InvalidOperationException($"TemplateVersion {dto.TemplateVersionId} no existe.");
+
+        if (!templateVersion.IsPublished)
+            throw new InvalidOperationException($"TemplateVersion {dto.TemplateVersionId} no esta publicada.");
+
+        var slugTaken = await _dbContext.Pages
+            .AnyAsync(x => x.WorkspaceId == workspaceId && x.Slug == dto.Slug, cancellationToken);
+        if (slugTaken)
+            throw new InvalidOperationException($"El slug '{dto.Slug}' ya esta en uso para este workspace.");
+
+        var correlationId = Guid.NewGuid().ToString("N");
+
+        var request = new PageGenerationRequest
+        {
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspaceId,
+            TemplateVersionId = dto.TemplateVersionId,
+            CorrelationId = correlationId,
+            PageName = dto.PageName,
+            Slug = dto.Slug,
+            ContentJson = JsonSerializer.Serialize(dto.Content),
+            Status = RequestStatus.Pending,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.PageGenerationRequests.Add(request);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var message = new CreatePageRequestedMessage
+        {
+            RequestId = request.Id,
+            CorrelationId = request.CorrelationId
+        };
+
+        await _publisher.PublishAsync(message, PageGenerationQueue, cancellationToken);
+
+        _logger.LogInformation(
+            "PageGenerationRequest creado y publicado. RequestId={RequestId}, CorrelationId={CorrelationId}",
+            request.Id, request.CorrelationId);
+
+        return new PageRequestResponseDto
+        {
+            RequestId = request.Id,
+            CorrelationId = request.CorrelationId,
+            Status = request.Status.ToString(),
+            CreatedAt = request.CreatedAt
+        };
+    }
+
+    public async Task<PageRequestResponseDto?> GetByIdAsync(Guid requestId, CancellationToken cancellationToken = default)
+    {
+        var workspaceId = ResolveWorkspaceId(_currentUser.WorkspaceId);
+        if (!await _workspaceAccess.IsMemberAsync(workspaceId, cancellationToken))
+            throw new UnauthorizedAccessException("Workspace no autorizado.");
+
+        var request = await _dbContext.PageGenerationRequests
+            .AsNoTracking()
+            .Include(x => x.Page)
+            .FirstOrDefaultAsync(x => x.Id == requestId && x.WorkspaceId == workspaceId, cancellationToken);
+
+        if (request is null)
+            return null;
+
+        return new PageRequestResponseDto
+        {
+            RequestId = request.Id,
+            CorrelationId = request.CorrelationId,
+            Status = request.Status.ToString(),
+            PageId = request.Page?.Id,
+            ErrorMessage = request.ErrorMessage,
+            CreatedAt = request.CreatedAt,
+            ProcessedAt = request.ProcessedAt
+        };
+    }
+
+    private Guid ResolveWorkspaceId(Guid? requestedWorkspaceId)
+    {
+        if (requestedWorkspaceId is Guid workspaceId && workspaceId != Guid.Empty)
+            return workspaceId;
+
+        if (_currentUser.WorkspaceId is Guid currentWorkspaceId && currentWorkspaceId != Guid.Empty)
+            return currentWorkspaceId;
+
+        throw new UnauthorizedAccessException("Workspace no especificado.");
+    }
+}
