@@ -110,6 +110,19 @@ RabbitMq__Password=<password>
 Cors__AllowedOrigins__0=https://<static-web-app>.azurestaticapps.net
 ```
 
+Para inicializar una base nueva en Azure, activar temporalmente:
+
+```text
+Database__RunMigrationsOnStartup=true
+AuthSeed__Enabled=true
+AuthSeed__WorkspaceName=WolfPage Demo
+AuthSeed__WorkspaceEmail=admin@wolfpage.local
+AuthSeed__AdminEmail=admin@wolfpage.local
+AuthSeed__AdminFullName=WolfPage Admin
+```
+
+Despues del primer arranque exitoso, dejar `Database__RunMigrationsOnStartup=false`. `AuthSeed__Enabled` puede quedar activo porque el seed es idempotente, aunque en produccion es mas limpio apagarlo luego de crear el admin inicial.
+
 El portal Angular usa `src/environments/environment.development.ts` para `ng serve` local y `src/environments/environment.ts` para el build productivo. Si cambia el dominio del App Service, actualizar `apiBaseUrl` en el environment productivo del portal.
 
 Para desarrollo local, los secretos se guardan fuera del repo con `dotnet user-secrets`:

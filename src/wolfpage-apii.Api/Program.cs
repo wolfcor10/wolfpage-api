@@ -118,13 +118,26 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+var runMigrationsOnStartup = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Database:RunMigrationsOnStartup");
+var runAuthSeed = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("AuthSeed:Enabled");
+
+if (runMigrationsOnStartup || runAuthSeed)
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-    var authSeeder = scope.ServiceProvider.GetRequiredService<AuthDataSeeder>();
-    await authSeeder.SeedAsync();
+
+    if (runMigrationsOnStartup)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+    }
+
+    if (runAuthSeed)
+    {
+        var authSeeder = scope.ServiceProvider.GetRequiredService<AuthDataSeeder>();
+        await authSeeder.SeedAsync();
+    }
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
