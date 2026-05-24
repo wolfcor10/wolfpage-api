@@ -17,7 +17,7 @@ using WolfPage.Api.Infrastructure.Persistence;
 using WolfPage.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
-const string PortalDevCorsPolicy = "PortalDev";
+const string CorsPolicy = "ConfiguredCors";
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 builder.Services.AddControllers();
@@ -102,10 +102,18 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(PortalDevCorsPolicy, policy =>
-        policy.WithOrigins("http://localhost:4200", "http://127.0.0.1:4200")
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
+    options.AddPolicy(CorsPolicy, policy =>
+    {
+        policy.AllowAnyMethod()
+            .AllowAnyHeader();
+
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins);
+    });
 });
 
 var app = builder.Build();
@@ -131,7 +139,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseCors(PortalDevCorsPolicy);
+app.UseCors(CorsPolicy);
 
 if (!app.Environment.IsDevelopment())
 {

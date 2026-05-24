@@ -78,27 +78,47 @@ Cliente
 
 ## Configuracion
 
-Editar `src/wolfpage-apii.Api/appsettings.json`:
+`appsettings.json` no contiene connection strings ni secretos de produccion. Para desarrollo local se usa `src/wolfpage-apii.Api/appsettings.Development.json`:
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=.\\MSSQLSERVER01;Database=WolfWareDb;Trusted_Connection=True;TrustServerCertificate=True"
+    "DefaultConnection": "Server=.\\MSSQLSERVER01;Database=WolfPageDb;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Jwt": {
     "Issuer": "WolfPage.Api",
     "Audience": "WolfPage.Portal",
-    "SecretKey": "wolfpage-dev-secret-key-change-me-please-1234567890",
+    "SecretKey": "<dev-secret>",
     "AccessTokenMinutes": 60
-  },
-  "AuthSeed": {
-    "WorkspaceName": "WolfPage Demo",
-    "WorkspaceEmail": "admin@wolfpage.local",
-    "AdminEmail": "admin@wolfpage.local",
-    "AdminPassword": "Admin123!",
-    "AdminFullName": "WolfPage Admin"
   }
 }
+```
+
+Para Azure App Service, configurar `DefaultConnection` desde **Environment variables > Connection strings** con tipo `SQLAzure`:
+
+```text
+Server=tcp:<server>.database.windows.net,1433;Database=<database>;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
+```
+
+Tambien configurar como App Settings los valores sensibles que no deben ir a git, por ejemplo:
+
+```text
+Jwt__SecretKey=<production-secret>
+RabbitMq__HostName=<host>
+RabbitMq__UserName=<user>
+RabbitMq__Password=<password>
+Cors__AllowedOrigins__0=https://<static-web-app>.azurestaticapps.net
+```
+
+El portal Angular usa `src/environments/environment.development.ts` para `ng serve` local y `src/environments/environment.ts` para el build productivo. Si cambia el dominio del App Service, actualizar `apiBaseUrl` en el environment productivo del portal.
+
+Para desarrollo local, los secretos se guardan fuera del repo con `dotnet user-secrets`:
+
+```bash
+dotnet user-secrets set "Jwt:SecretKey" "<dev-secret>" --project src/wolfpage-apii.Api
+dotnet user-secrets set "AuthSeed:AdminPassword" "<dev-admin-password>" --project src/wolfpage-apii.Api
+dotnet user-secrets set "RabbitMq:UserName" "<dev-rabbit-user>" --project src/wolfpage-apii.Api
+dotnet user-secrets set "RabbitMq:Password" "<dev-rabbit-password>" --project src/wolfpage-apii.Api
 ```
 
 ## Ejecutar
