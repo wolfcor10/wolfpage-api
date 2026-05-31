@@ -63,6 +63,10 @@ Cliente
 | Metodo | Ruta                       | Descripcion                                      |
 | ------ | -------------------------- | ------------------------------------------------ |
 | POST   | `/api/auth/login`          | Autentica usuario interno y emite JWT            |
+| POST   | `/api/auth/register`       | Crea usuario, workspace inicial y envia confirmacion |
+| POST   | `/api/auth/confirm-email`  | Confirma el correo con token enviado por email   |
+| POST   | `/api/auth/resend-confirmation` | Reenvia el enlace de confirmacion          |
+| POST   | `/api/auth/google`         | Autentica o registra con Google Identity         |
 | GET    | `/api/auth/me`             | Devuelve usuario, workspace activo y membresias  |
 | GET    | `/api/workspaces`          | Lista workspaces del usuario autenticado         |
 | POST   | `/api/workspaces`          | Crea workspace y asigna admin al creador         |
@@ -108,6 +112,17 @@ RabbitMq__HostName=<host>
 RabbitMq__UserName=<user>
 RabbitMq__Password=<password>
 Cors__AllowedOrigins__0=https://<static-web-app>.azurestaticapps.net
+Portal__BaseUrl=https://<static-web-app>.azurestaticapps.net
+Email__Provider=AzureCommunicationServices
+Email__FromAddress=donotreply@<managed-domain>.azurecomm.net
+AzureCommunicationServices__ConnectionString=<acs-connection-string>
+GoogleAuth__ClientId=<google-oauth-client-id>
+```
+
+Para exigir confirmacion de correo antes del login con password, activar:
+
+```text
+Auth__RequireConfirmedEmail=true
 ```
 
 Para inicializar una base nueva en Azure, activar temporalmente:
@@ -132,6 +147,10 @@ dotnet user-secrets set "Jwt:SecretKey" "<dev-secret>" --project src/wolfpage-ap
 dotnet user-secrets set "AuthSeed:AdminPassword" "<dev-admin-password>" --project src/wolfpage-apii.Api
 dotnet user-secrets set "RabbitMq:UserName" "<dev-rabbit-user>" --project src/wolfpage-apii.Api
 dotnet user-secrets set "RabbitMq:Password" "<dev-rabbit-password>" --project src/wolfpage-apii.Api
+dotnet user-secrets set "Email:Provider" "AzureCommunicationServices" --project src/wolfpage-apii.Api
+dotnet user-secrets set "Email:FromAddress" "donotreply@<managed-domain>.azurecomm.net" --project src/wolfpage-apii.Api
+dotnet user-secrets set "AzureCommunicationServices:ConnectionString" "<acs-connection-string>" --project src/wolfpage-apii.Api
+dotnet user-secrets set "GoogleAuth:ClientId" "<google-oauth-client-id>" --project src/wolfpage-apii.Api
 ```
 
 ## Ejecutar
