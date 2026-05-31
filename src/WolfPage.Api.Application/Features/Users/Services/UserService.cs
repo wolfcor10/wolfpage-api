@@ -73,6 +73,8 @@ public class UserService : IUserService
                 Email = email,
                 FullName = request.FullName.Trim(),
                 IsActive = true,
+                EmailConfirmed = true,
+                EmailConfirmedAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
             };

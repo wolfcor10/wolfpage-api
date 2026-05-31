@@ -13,6 +13,8 @@ public interface IAppDbContext
     DbSet<PageAsset> PageAssets { get; }
     DbSet<DomainBinding> DomainBindings { get; }
     DbSet<User> Users { get; }
+    DbSet<UserExternalLogin> UserExternalLogins { get; }
+    DbSet<UserToken> UserTokens { get; }
     DbSet<Role> Roles { get; }
     DbSet<WorkspaceMember> WorkspaceMembers { get; }
 

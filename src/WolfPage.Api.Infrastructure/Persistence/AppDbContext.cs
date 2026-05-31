@@ -18,6 +18,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<PageAsset> PageAssets => Set<PageAsset>();
     public DbSet<DomainBinding> DomainBindings => Set<DomainBinding>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<WorkspaceMember> WorkspaceMembers => Set<WorkspaceMember>();
 
@@ -196,9 +198,11 @@ public class AppDbContext : DbContext, IAppDbContext
 
             entity.Property(x => x.Id).ValueGeneratedNever();
             entity.Property(x => x.Email).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.PasswordHash).HasMaxLength(500);
             entity.Property(x => x.FullName).HasMaxLength(200).IsRequired();
             entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.EmailConfirmed).IsRequired();
+            entity.Property(x => x.EmailConfirmedAt);
             entity.Property(x => x.LastLoginAt);
             entity.Property(x => x.CreatedAt).IsRequired();
             entity.Property(x => x.UpdatedAt).IsRequired();
@@ -214,6 +218,47 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithOne(x => x.InvitedByUser)
                 .HasForeignKey(x => x.InvitedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(x => x.ExternalLogins)
+                .WithOne(x => x.User)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.Tokens)
+                .WithOne(x => x.User)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserExternalLogin>(entity =>
+        {
+            entity.ToTable("user_external_login");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Provider).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.ProviderUserId).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+
+            entity.HasIndex(x => new { x.Provider, x.ProviderUserId }).IsUnique();
+            entity.HasIndex(x => new { x.Provider, x.Email });
+        });
+
+        modelBuilder.Entity<UserToken>(entity =>
+        {
+            entity.ToTable("user_token");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Purpose).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+            entity.Property(x => x.ExpiresAt).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UsedAt);
+
+            entity.HasIndex(x => new { x.Purpose, x.TokenHash }).IsUnique();
+            entity.HasIndex(x => x.UserId);
         });
 
         modelBuilder.Entity<Role>(entity =>

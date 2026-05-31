@@ -87,6 +87,8 @@ public class AuthDataSeeder
                 Email = adminEmail,
                 FullName = adminFullName,
                 IsActive = true,
+                EmailConfirmed = true,
+                EmailConfirmedAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
             };
