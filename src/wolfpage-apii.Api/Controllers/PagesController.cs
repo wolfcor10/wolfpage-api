@@ -26,6 +26,17 @@ public class PagesController : ControllerBase
         return Ok(pages);
     }
 
+    [HttpPost]
+    [ProducesResponseType(typeof(PageRequestResponseDto), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Create(
+        [FromBody] BusinessPageCreateRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await _requestService.CreateBusinessPageAsync(request, cancellationToken);
+        return AcceptedAtAction(nameof(GetRequest), new { id = response.RequestId }, response);
+    }
+
     [HttpPost("generate")]
     [ProducesResponseType(typeof(PageRequestResponseDto), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
