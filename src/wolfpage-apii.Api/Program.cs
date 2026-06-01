@@ -142,7 +142,10 @@ if (runMigrationsOnStartup || runAuthSeed)
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
