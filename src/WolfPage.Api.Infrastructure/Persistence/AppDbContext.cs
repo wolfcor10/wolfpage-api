@@ -15,6 +15,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
     public DbSet<PageGenerationRequest> PageGenerationRequests => Set<PageGenerationRequest>();
     public DbSet<Page> Pages => Set<Page>();
+    public DbSet<PageItem> PageItems => Set<PageItem>();
     public DbSet<PageAsset> PageAssets => Set<PageAsset>();
     public DbSet<DomainBinding> DomainBindings => Set<DomainBinding>();
     public DbSet<User> Users => Set<User>();
@@ -99,6 +100,7 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.SelectedTemplateId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.CorrelationId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.PageName).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(150).IsRequired();
@@ -113,10 +115,16 @@ public class AppDbContext : DbContext, IAppDbContext
                 .IsRequired();
 
             entity.HasIndex(x => x.CorrelationId).IsUnique();
+            entity.HasIndex(x => x.PageId);
 
             entity.HasOne(x => x.TemplateVersion)
                 .WithMany(x => x.PageGenerationRequests)
                 .HasForeignKey(x => x.TemplateVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Page)
+                .WithOne(x => x.Request)
+                .HasForeignKey<PageGenerationRequest>(x => x.PageId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -126,12 +134,27 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.SelectedTemplateId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Title).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Slug).HasMaxLength(150).IsRequired();
             entity.Property(x => x.RoutePath).HasMaxLength(250).IsRequired();
-            entity.Property(x => x.HtmlContent).IsRequired();
+            entity.Property(x => x.HtmlContent);
             entity.Property(x => x.CssContent);
             entity.Property(x => x.JsContent);
+            entity.Property(x => x.BusinessName).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.BusinessCategory).HasMaxLength(100);
+            entity.Property(x => x.BusinessDescription).IsRequired();
+            entity.Property(x => x.LogoUrl).HasMaxLength(500);
+            entity.Property(x => x.HeroTitle).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.HeroSubtitle).HasMaxLength(500);
+            entity.Property(x => x.HeroImageUrl).HasMaxLength(500);
+            entity.Property(x => x.Phone).HasMaxLength(80);
+            entity.Property(x => x.Email).HasMaxLength(200);
+            entity.Property(x => x.Address).HasMaxLength(300);
+            entity.Property(x => x.WhatsApp).HasMaxLength(80);
+            entity.Property(x => x.OpeningHours).HasMaxLength(300);
+            entity.Property(x => x.SocialLinksJson);
+            entity.Property(x => x.GeneratedFilePath).HasMaxLength(800);
             entity.Property(x => x.PublishedUrl).HasMaxLength(500);
             entity.Property(x => x.CreatedAt).IsRequired();
             entity.Property(x => x.UpdatedAt).IsRequired();
@@ -142,17 +165,34 @@ public class AppDbContext : DbContext, IAppDbContext
                 .IsRequired();
 
             entity.HasIndex(x => new { x.WorkspaceId, x.Slug }).IsUnique();
-            entity.HasIndex(x => x.RequestId).IsUnique();
+            entity.HasIndex(x => x.RequestId).IsUnique().HasFilter("[RequestId] IS NOT NULL");
 
             entity.HasOne(x => x.TemplateVersion)
                 .WithMany(x => x.Pages)
                 .HasForeignKey(x => x.TemplateVersionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(x => x.Request)
+            entity.HasMany(x => x.Items)
                 .WithOne(x => x.Page)
-                .HasForeignKey<Page>(x => x.RequestId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .HasForeignKey(x => x.PageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PageItem>(entity =>
+        {
+            entity.ToTable("page_item");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(800).IsRequired();
+            entity.Property(x => x.Price).HasMaxLength(80);
+            entity.Property(x => x.ImageUrl).HasMaxLength(500);
+            entity.Property(x => x.Category).HasMaxLength(100);
+            entity.Property(x => x.Enabled).IsRequired();
+            entity.Property(x => x.SortOrder).IsRequired();
+
+            entity.HasIndex(x => new { x.PageId, x.SortOrder });
         });
 
         modelBuilder.Entity<PageAsset>(entity =>

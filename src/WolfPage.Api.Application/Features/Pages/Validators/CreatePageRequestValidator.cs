@@ -8,7 +8,9 @@ public class CreatePageRequestValidator : AbstractValidator<CreatePageRequestDto
     public CreatePageRequestValidator()
     {
         RuleFor(x => x.WorkspaceId).NotEmpty();
-        RuleFor(x => x.TemplateVersionId).NotEmpty();
+        RuleFor(x => x.SelectedTemplateId)
+            .NotEmpty()
+            .MaximumLength(100);
 
         RuleFor(x => x.PageName)
             .NotEmpty()

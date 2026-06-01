@@ -17,7 +17,7 @@ public class TemplatesController : ControllerBase
     }
 
     /// <summary>
-    /// Lista todos los templates activos con sus versiones publicadas.
+    /// Lista los templates disponibles para generacion.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<TemplateDto>), StatusCodes.Status200OK)]
@@ -28,12 +28,12 @@ public class TemplatesController : ControllerBase
     }
 
     /// <summary>
-    /// Obtiene un template por su id (incluyendo todas sus versiones).
+    /// Obtiene un template por su id.
     /// </summary>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id}")]
     [ProducesResponseType(typeof(TemplateDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var template = await _templateService.GetByIdAsync(id, cancellationToken);
         return template is null ? NotFound() : Ok(template);

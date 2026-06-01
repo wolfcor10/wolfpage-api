@@ -10,6 +10,7 @@ public interface IAppDbContext
     DbSet<TemplateVersion> TemplateVersions { get; }
     DbSet<PageGenerationRequest> PageGenerationRequests { get; }
     DbSet<Page> Pages { get; }
+    DbSet<PageItem> PageItems { get; }
     DbSet<PageAsset> PageAssets { get; }
     DbSet<DomainBinding> DomainBindings { get; }
     DbSet<User> Users { get; }

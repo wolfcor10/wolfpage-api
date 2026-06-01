@@ -6,7 +6,9 @@ public class PageGenerationRequest
 {
     public Guid Id { get; set; }
     public Guid WorkspaceId { get; set; }
-    public Guid TemplateVersionId { get; set; }
+    public Guid PageId { get; set; }
+    public Guid? TemplateVersionId { get; set; }
+    public string SelectedTemplateId { get; set; } = default!;
     public string CorrelationId { get; set; } = default!;
     public string PageName { get; set; } = default!;
     public string Slug { get; set; } = default!;
@@ -17,6 +19,6 @@ public class PageGenerationRequest
     public DateTime? ProcessedAt { get; set; }
 
     public Workspace Workspace { get; set; } = default!;
-    public TemplateVersion TemplateVersion { get; set; } = default!;
+    public TemplateVersion? TemplateVersion { get; set; }
     public Page? Page { get; set; }
 }

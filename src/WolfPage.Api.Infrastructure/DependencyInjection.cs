@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<AzureCommunicationServicesOptions>(
             configuration.GetSection(AzureCommunicationServicesOptions.SectionName));
+        services.Configure<MessagingOptions>(configuration.GetSection(MessagingOptions.SectionName));
+        services.Configure<AzureServiceBusOptions>(configuration.GetSection(AzureServiceBusOptions.SectionName));
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
@@ -46,7 +48,14 @@ public static class DependencyInjection
             services.AddSingleton<IEmailSender, LogEmailSender>();
 
         services.Configure<RabbitMqOptions>(configuration.GetSection(RabbitMqOptions.SectionName));
-        services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
+        var messagingOptions = configuration
+            .GetSection(MessagingOptions.SectionName)
+            .Get<MessagingOptions>() ?? new MessagingOptions();
+
+        if (messagingOptions.Provider.Equals("AzureServiceBus", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IMessagePublisher, AzureServiceBusPublisher>();
+        else
+            services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
 
         return services;
     }
