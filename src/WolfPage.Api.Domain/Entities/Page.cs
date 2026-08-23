@@ -23,12 +23,14 @@ public class Page
     public string HeroTitle { get; set; } = default!;
     public string? HeroSubtitle { get; set; }
     public string? HeroImageUrl { get; set; }
+    public string? HeroImageStoragePath { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Address { get; set; }
     public string? WhatsApp { get; set; }
     public string? OpeningHours { get; set; }
     public string? SocialLinksJson { get; set; }
+    public string? ContentSnapshotJson { get; set; }
     public string? GeneratedFilePath { get; set; }
     public PageStatus Status { get; set; } = PageStatus.Generated;
     public string? PublishedUrl { get; set; }
@@ -37,7 +39,7 @@ public class Page
 
     public Workspace Workspace { get; set; } = default!;
     public TemplateVersion? TemplateVersion { get; set; }
-    public PageGenerationRequest? Request { get; set; }
+    public ICollection<PageGenerationRequest> GenerationRequests { get; set; } = new List<PageGenerationRequest>();
     public ICollection<PageItem> Items { get; set; } = new List<PageItem>();
     public ICollection<PageAsset> Assets { get; set; } = new List<PageAsset>();
     public ICollection<DomainBinding> DomainBindings { get; set; } = new List<DomainBinding>();

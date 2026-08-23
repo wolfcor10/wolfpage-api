@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IPageQueryService, PageQueryService>();
         services.AddScoped<ITemplateService, TemplateService>();
         services.AddScoped<IWorkspaceService, WorkspaceService>();
+        services.AddScoped<IWorkspaceContentService, WorkspaceContentService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IWorkspaceAccessService, WorkspaceAccessService>();

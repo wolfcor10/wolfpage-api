@@ -20,6 +20,10 @@ obj/
 # Logs
 *.log
 
+# Local Azurite development data
+.azurite/
+node_modules/
+
 # OS files
 Thumbs.db
 Desktop.ini

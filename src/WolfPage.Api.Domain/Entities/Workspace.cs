@@ -12,7 +12,9 @@ public class Workspace
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
 
+    public WorkspaceProfile? Profile { get; set; }
     public ICollection<WorkspaceMember> Members { get; set; } = new List<WorkspaceMember>();
+    public ICollection<WorkspaceCatalogItem> CatalogItems { get; set; } = new List<WorkspaceCatalogItem>();
     public ICollection<PageGenerationRequest> PageGenerationRequests { get; set; } = new List<PageGenerationRequest>();
     public ICollection<Page> Pages { get; set; } = new List<Page>();
 }

@@ -8,24 +8,27 @@ namespace WolfPage.Api.Infrastructure.Email;
 
 public class AzureCommunicationEmailSender : IEmailSender
 {
-    private readonly EmailClient _client;
+    private readonly AzureCommunicationServicesOptions _acsOptions;
     private readonly EmailOptions _emailOptions;
+    private EmailClient? _client;
 
     public AzureCommunicationEmailSender(
         IOptions<AzureCommunicationServicesOptions> acsOptions,
         IOptions<EmailOptions> emailOptions)
     {
-        if (string.IsNullOrWhiteSpace(acsOptions.Value.ConnectionString))
-            throw new InvalidOperationException("Azure Communication Services connection string is not configured.");
-
-        _client = new EmailClient(acsOptions.Value.ConnectionString);
+        _acsOptions = acsOptions.Value;
         _emailOptions = emailOptions.Value;
     }
 
     public async Task SendAsync(EmailRequest request, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_acsOptions.ConnectionString))
+            throw new InvalidOperationException("Azure Communication Services connection string is not configured.");
+
         if (string.IsNullOrWhiteSpace(_emailOptions.FromAddress))
             throw new InvalidOperationException("Email FromAddress is not configured.");
+
+        _client ??= new EmailClient(_acsOptions.ConnectionString);
 
         await _client.SendAsync(
             WaitUntil.Completed,

@@ -6,6 +6,8 @@ namespace WolfPage.Api.Application.Persistence;
 public interface IAppDbContext
 {
     DbSet<Workspace> Workspaces { get; }
+    DbSet<WorkspaceProfile> WorkspaceProfiles { get; }
+    DbSet<WorkspaceCatalogItem> WorkspaceCatalogItems { get; }
     DbSet<Template> Templates { get; }
     DbSet<TemplateVersion> TemplateVersions { get; }
     DbSet<PageGenerationRequest> PageGenerationRequests { get; }

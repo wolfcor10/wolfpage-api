@@ -11,6 +11,8 @@ public class AppDbContext : DbContext, IAppDbContext
     }
 
     public DbSet<Workspace> Workspaces => Set<Workspace>();
+    public DbSet<WorkspaceProfile> WorkspaceProfiles => Set<WorkspaceProfile>();
+    public DbSet<WorkspaceCatalogItem> WorkspaceCatalogItems => Set<WorkspaceCatalogItem>();
     public DbSet<Template> Templates => Set<Template>();
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
     public DbSet<PageGenerationRequest> PageGenerationRequests => Set<PageGenerationRequest>();
@@ -53,6 +55,71 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithOne(x => x.Workspace)
                 .HasForeignKey(x => x.WorkspaceId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.Profile)
+                .WithOne(x => x.Workspace)
+                .HasForeignKey<WorkspaceProfile>(x => x.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.CatalogItems)
+                .WithOne(x => x.Workspace)
+                .HasForeignKey(x => x.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkspaceProfile>(entity =>
+        {
+            entity.ToTable("workspace_profile");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.DisplayName).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.LegalName).HasMaxLength(200);
+            entity.Property(x => x.Category).HasMaxLength(100);
+            entity.Property(x => x.Description).HasMaxLength(2000).IsRequired();
+            entity.Property(x => x.LogoUrl).HasMaxLength(500);
+            entity.Property(x => x.CoverImageUrl).HasMaxLength(500);
+            entity.Property(x => x.Phone).HasMaxLength(80);
+            entity.Property(x => x.Email).HasMaxLength(200);
+            entity.Property(x => x.WhatsApp).HasMaxLength(80);
+            entity.Property(x => x.Address).HasMaxLength(300);
+            entity.Property(x => x.OpeningHours).HasMaxLength(300);
+            entity.Property(x => x.WebsiteUrl).HasMaxLength(500);
+            entity.Property(x => x.FacebookUrl).HasMaxLength(500);
+            entity.Property(x => x.InstagramUrl).HasMaxLength(500);
+            entity.Property(x => x.TiktokUrl).HasMaxLength(500);
+            entity.Property(x => x.LinkedinUrl).HasMaxLength(500);
+            entity.Property(x => x.PrimaryColor).HasMaxLength(20);
+            entity.Property(x => x.SecondaryColor).HasMaxLength(20);
+            entity.Property(x => x.AccentColor).HasMaxLength(20);
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+
+            entity.HasIndex(x => x.WorkspaceId).IsUnique();
+        });
+
+        modelBuilder.Entity<WorkspaceCatalogItem>(entity =>
+        {
+            entity.ToTable("workspace_catalog_item");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Type).HasConversion<string>().HasMaxLength(30).IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(800).IsRequired();
+            entity.Property(x => x.Category).HasMaxLength(100);
+            entity.Property(x => x.PriceLabel).HasMaxLength(80);
+            entity.Property(x => x.ImageUrl).HasMaxLength(500);
+            entity.Property(x => x.ImageStoragePath).HasMaxLength(500);
+            entity.Property(x => x.CtaLabel).HasMaxLength(80);
+            entity.Property(x => x.CtaUrl).HasMaxLength(500);
+            entity.Property(x => x.IsFeatured).IsRequired();
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.SortOrder).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.Property(x => x.UpdatedAt).IsRequired();
+
+            entity.HasIndex(x => new { x.WorkspaceId, x.IsActive, x.SortOrder });
         });
 
         modelBuilder.Entity<Template>(entity =>
@@ -123,8 +190,8 @@ public class AppDbContext : DbContext, IAppDbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(x => x.Page)
-                .WithOne(x => x.Request)
-                .HasForeignKey<PageGenerationRequest>(x => x.PageId)
+                .WithMany(x => x.GenerationRequests)
+                .HasForeignKey(x => x.PageId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -148,12 +215,14 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.Property(x => x.HeroTitle).HasMaxLength(200).IsRequired();
             entity.Property(x => x.HeroSubtitle).HasMaxLength(500);
             entity.Property(x => x.HeroImageUrl).HasMaxLength(500);
+            entity.Property(x => x.HeroImageStoragePath).HasMaxLength(500);
             entity.Property(x => x.Phone).HasMaxLength(80);
             entity.Property(x => x.Email).HasMaxLength(200);
             entity.Property(x => x.Address).HasMaxLength(300);
             entity.Property(x => x.WhatsApp).HasMaxLength(80);
             entity.Property(x => x.OpeningHours).HasMaxLength(300);
             entity.Property(x => x.SocialLinksJson);
+            entity.Property(x => x.ContentSnapshotJson);
             entity.Property(x => x.GeneratedFilePath).HasMaxLength(800);
             entity.Property(x => x.PublishedUrl).HasMaxLength(500);
             entity.Property(x => x.CreatedAt).IsRequired();
@@ -184,6 +253,7 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasKey(x => x.Id);
 
             entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.SourceCatalogItemId);
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(800).IsRequired();
             entity.Property(x => x.Price).HasMaxLength(80);
@@ -193,6 +263,7 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.Property(x => x.SortOrder).IsRequired();
 
             entity.HasIndex(x => new { x.PageId, x.SortOrder });
+            entity.HasIndex(x => x.SourceCatalogItemId);
         });
 
         modelBuilder.Entity<PageAsset>(entity =>

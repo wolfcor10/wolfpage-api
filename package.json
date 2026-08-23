@@ -1,0 +1,10 @@
+{
+  "name": "wolfpage-api-local-tools",
+  "private": true,
+  "scripts": {
+    "azurite": "azurite-blob --silent --location .azurite --debug .azurite/debug.log --blobHost 127.0.0.1 --blobPort 10000"
+  },
+  "devDependencies": {
+    "azurite": "3.36.0"
+  }
+}

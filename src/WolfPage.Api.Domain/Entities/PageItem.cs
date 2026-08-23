@@ -4,6 +4,7 @@ public class PageItem
 {
     public Guid Id { get; set; }
     public Guid PageId { get; set; }
+    public Guid? SourceCatalogItemId { get; set; }
     public string Name { get; set; } = default!;
     public string Description { get; set; } = default!;
     public string? Price { get; set; }

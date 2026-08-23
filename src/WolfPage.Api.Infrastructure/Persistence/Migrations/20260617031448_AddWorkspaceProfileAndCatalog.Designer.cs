@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WolfPage.Api.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using WolfPage.Api.Infrastructure.Persistence;
 namespace WolfPage.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260617031448_AddWorkspaceProfileAndCatalog")]
+    partial class AddWorkspaceProfileAndCatalog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -93,10 +96,6 @@ namespace WolfPage.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("GeneratedFilePath")
                         .HasMaxLength(800)
                         .HasColumnType("nvarchar(800)");
-
-                    b.Property<string>("HeroImageStoragePath")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("HeroImageUrl")
                         .HasMaxLength(500)
@@ -284,7 +283,8 @@ namespace WolfPage.Api.Infrastructure.Persistence.Migrations
                     b.HasIndex("CorrelationId")
                         .IsUnique();
 
-                    b.HasIndex("PageId");
+                    b.HasIndex("PageId")
+                        .IsUnique();
 
                     b.HasIndex("TemplateVersionId");
 
@@ -632,10 +632,6 @@ namespace WolfPage.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(800)
                         .HasColumnType("nvarchar(800)");
 
-                    b.Property<string>("ImageStoragePath")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -870,8 +866,8 @@ namespace WolfPage.Api.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("WolfPage.Api.Domain.Entities.PageGenerationRequest", b =>
                 {
                     b.HasOne("WolfPage.Api.Domain.Entities.Page", "Page")
-                        .WithMany("GenerationRequests")
-                        .HasForeignKey("PageId")
+                        .WithOne("Request")
+                        .HasForeignKey("WolfPage.Api.Domain.Entities.PageGenerationRequest", "PageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -999,9 +995,9 @@ namespace WolfPage.Api.Infrastructure.Persistence.Migrations
 
                     b.Navigation("DomainBindings");
 
-                    b.Navigation("GenerationRequests");
-
                     b.Navigation("Items");
+
+                    b.Navigation("Request");
                 });
 
             modelBuilder.Entity("WolfPage.Api.Domain.Entities.Role", b =>

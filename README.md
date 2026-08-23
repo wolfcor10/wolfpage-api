@@ -7,6 +7,7 @@ REST API de la plataforma WolfPage. Gestiona workspaces, templates, usuarios, pa
 - .NET 10 / ASP.NET Core Web API
 - EF Core 9.0.4 + SQL Server
 - RabbitMQ.Client 6.8.1
+- Azure Blob Storage SDK 12.29.1 + Azurite 3.36.0
 - FluentValidation 11.9.2
 - Swashbuckle.AspNetCore 6.6.2 (Swagger UI)
 
@@ -117,7 +118,11 @@ Email__Provider=AzureCommunicationServices
 Email__FromAddress=donotreply@<managed-domain>.azurecomm.net
 AzureCommunicationServices__ConnectionString=<acs-connection-string>
 GoogleAuth__ClientId=<google-oauth-client-id>
+Storage__ServiceUri=https://<storage-account>.blob.core.windows.net
+Storage__ContainerName=wolfpage-media
 ```
+
+En Azure se recomienda usar `Storage__ServiceUri` con identidad administrada y asignar a la API el rol **Storage Blob Data Contributor**. Si se usa una cadena de conexion en lugar de identidad administrada, guardarla como `Storage__ConnectionString`; nunca debe agregarse a `appsettings.json`.
 
 Para exigir confirmacion de correo antes del login con password, activar:
 
@@ -154,6 +159,24 @@ dotnet user-secrets set "GoogleAuth:ClientId" "<google-oauth-client-id>" --proje
 ```
 
 ## Ejecutar
+
+### 1. Iniciar Blob Storage local
+
+La primera vez, desde la raiz del repositorio:
+
+```bash
+npm install
+```
+
+En cada sesion de desarrollo, mantener esta terminal abierta:
+
+```bash
+npm run azurite
+```
+
+Azurite escuchara en `http://127.0.0.1:10000` y guardara sus datos locales en `.azurite/`. La configuracion de desarrollo usa `Storage:ConnectionString=UseDevelopmentStorage=true`; no requiere secretos.
+
+### 2. Base de datos y API
 
 Aplicar migraciones:
 
