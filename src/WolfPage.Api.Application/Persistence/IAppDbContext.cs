@@ -8,6 +8,7 @@ public interface IAppDbContext
     DbSet<Workspace> Workspaces { get; }
     DbSet<WorkspaceProfile> WorkspaceProfiles { get; }
     DbSet<WorkspaceCatalogItem> WorkspaceCatalogItems { get; }
+    DbSet<WorkspaceCatalogItemImage> WorkspaceCatalogItemImages { get; }
     DbSet<Template> Templates { get; }
     DbSet<TemplateVersion> TemplateVersions { get; }
     DbSet<PageGenerationRequest> PageGenerationRequests { get; }

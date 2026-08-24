@@ -10,6 +10,8 @@ public class WorkspaceProfile
     public string Description { get; set; } = default!;
     public string? LogoUrl { get; set; }
     public string? CoverImageUrl { get; set; }
+    public string? LogoStoragePath { get; set; }
+    public string? CoverImageStoragePath { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? WhatsApp { get; set; }

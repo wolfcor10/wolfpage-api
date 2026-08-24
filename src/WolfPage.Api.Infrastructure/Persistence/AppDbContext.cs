@@ -13,6 +13,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Workspace> Workspaces => Set<Workspace>();
     public DbSet<WorkspaceProfile> WorkspaceProfiles => Set<WorkspaceProfile>();
     public DbSet<WorkspaceCatalogItem> WorkspaceCatalogItems => Set<WorkspaceCatalogItem>();
+    public DbSet<WorkspaceCatalogItemImage> WorkspaceCatalogItemImages => Set<WorkspaceCatalogItemImage>();
     public DbSet<Template> Templates => Set<Template>();
     public DbSet<TemplateVersion> TemplateVersions => Set<TemplateVersion>();
     public DbSet<PageGenerationRequest> PageGenerationRequests => Set<PageGenerationRequest>();
@@ -79,6 +80,8 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.Property(x => x.Description).HasMaxLength(2000).IsRequired();
             entity.Property(x => x.LogoUrl).HasMaxLength(500);
             entity.Property(x => x.CoverImageUrl).HasMaxLength(500);
+            entity.Property(x => x.LogoStoragePath).HasMaxLength(500);
+            entity.Property(x => x.CoverImageStoragePath).HasMaxLength(500);
             entity.Property(x => x.Phone).HasMaxLength(80);
             entity.Property(x => x.Email).HasMaxLength(200);
             entity.Property(x => x.WhatsApp).HasMaxLength(80);
@@ -120,6 +123,29 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.Property(x => x.UpdatedAt).IsRequired();
 
             entity.HasIndex(x => new { x.WorkspaceId, x.IsActive, x.SortOrder });
+        });
+
+        modelBuilder.Entity<WorkspaceCatalogItemImage>(entity =>
+        {
+            entity.ToTable("workspace_catalog_item_image");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.StoragePath).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.ContentType).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.IsPrimary).IsRequired();
+            entity.Property(x => x.SortOrder).IsRequired();
+            entity.Property(x => x.CreatedAt).IsRequired();
+
+            entity.HasIndex(x => new { x.CatalogItemId, x.SortOrder }).IsUnique();
+            entity.HasIndex(x => new { x.CatalogItemId, x.IsPrimary })
+                .IsUnique()
+                .HasFilter("[IsPrimary] = 1");
+
+            entity.HasOne(x => x.CatalogItem)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.CatalogItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Template>(entity =>

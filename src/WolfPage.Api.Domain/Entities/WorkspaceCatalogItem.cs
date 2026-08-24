@@ -22,4 +22,5 @@ public class WorkspaceCatalogItem
     public DateTime UpdatedAt { get; set; }
 
     public Workspace Workspace { get; set; } = default!;
+    public ICollection<WorkspaceCatalogItemImage> Images { get; set; } = new List<WorkspaceCatalogItemImage>();
 }

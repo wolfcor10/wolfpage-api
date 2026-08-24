@@ -11,6 +11,7 @@ public class WorkspaceCatalogItemDto
     public string? PriceLabel { get; set; }
     public string? ImageUrl { get; set; }
     public bool HasStoredImage { get; set; }
+    public List<CatalogItemImageDto> Images { get; set; } = [];
     public string? CtaLabel { get; set; }
     public string? CtaUrl { get; set; }
     public bool IsFeatured { get; set; }
@@ -18,4 +19,12 @@ public class WorkspaceCatalogItemDto
     public int SortOrder { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+public class CatalogItemImageDto
+{
+    public Guid Id { get; set; }
+    public bool IsPrimary { get; set; }
+    public int SortOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

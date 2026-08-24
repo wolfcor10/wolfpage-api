@@ -15,6 +15,7 @@ public class WorkspaceContentService : IWorkspaceContentService
     private readonly IFileStorage _fileStorage;
 
     private const long MaxImageBytes = 5 * 1024 * 1024;
+    private const int MaxCatalogImages = 5;
 
     public WorkspaceContentService(
         IAppDbContext dbContext,
@@ -86,6 +87,38 @@ public class WorkspaceContentService : IWorkspaceContentService
         return Map(profile);
     }
 
+    public Task<WorkspaceProfileDto?> UploadProfileLogoAsync(
+        Guid workspaceId,
+        CatalogItemImageUpload upload,
+        CancellationToken cancellationToken = default) =>
+        UploadProfileImageAsync(workspaceId, upload, isLogo: true, cancellationToken);
+
+    public Task<CatalogItemImageContent?> GetProfileLogoAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken = default) =>
+        GetProfileImageAsync(workspaceId, isLogo: true, cancellationToken);
+
+    public Task<bool> DeleteProfileLogoAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken = default) =>
+        DeleteProfileImageAsync(workspaceId, isLogo: true, cancellationToken);
+
+    public Task<WorkspaceProfileDto?> UploadProfileCoverAsync(
+        Guid workspaceId,
+        CatalogItemImageUpload upload,
+        CancellationToken cancellationToken = default) =>
+        UploadProfileImageAsync(workspaceId, upload, isLogo: false, cancellationToken);
+
+    public Task<CatalogItemImageContent?> GetProfileCoverAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken = default) =>
+        GetProfileImageAsync(workspaceId, isLogo: false, cancellationToken);
+
+    public Task<bool> DeleteProfileCoverAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken = default) =>
+        DeleteProfileImageAsync(workspaceId, isLogo: false, cancellationToken);
+
     public async Task<List<WorkspaceCatalogItemDto>> GetCatalogItemsAsync(
         Guid workspaceId,
         bool includeInactive = false,
@@ -95,6 +128,7 @@ public class WorkspaceContentService : IWorkspaceContentService
 
         var query = _dbContext.WorkspaceCatalogItems
             .AsNoTracking()
+            .Include(x => x.Images)
             .Where(x => x.WorkspaceId == workspaceId);
 
         if (!includeInactive)
@@ -139,6 +173,7 @@ public class WorkspaceContentService : IWorkspaceContentService
         await EnsureCanManageAsync(workspaceId, cancellationToken);
 
         var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
             .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
 
         if (item is null)
@@ -179,38 +214,43 @@ public class WorkspaceContentService : IWorkspaceContentService
         await EnsureCanManageAsync(workspaceId, cancellationToken);
 
         var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
             .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
 
         if (item is null)
             return null;
 
-        var contentType = NormalizeImageContentType(upload.ContentType);
-        if (upload.Length <= 0 || upload.Length > MaxImageBytes)
-            throw new InvalidOperationException("La imagen debe pesar entre 1 byte y 5 MB.");
+        await using var image = await ReadValidatedImageAsync(upload, cancellationToken);
+        var newStoragePath = $"workspaces/{workspaceId:N}/catalog/{itemId:N}/{Guid.NewGuid():N}{image.Extension}";
+        var primaryImage = item.Images.FirstOrDefault(x => x.IsPrimary)
+            ?? item.Images.OrderBy(x => x.SortOrder).FirstOrDefault();
+        var previousStoragePath = primaryImage?.StoragePath ?? item.ImageStoragePath;
 
-        await using var bufferedContent = new MemoryStream((int)upload.Length);
-        await upload.Content.CopyToAsync(bufferedContent, cancellationToken);
-        if (bufferedContent.Length != upload.Length)
-            throw new InvalidOperationException("No fue posible leer la imagen completa.");
-
-        bufferedContent.Position = 0;
-        ValidateImageSignature(bufferedContent, contentType);
-        bufferedContent.Position = 0;
-
-        var extension = contentType switch
-        {
-            "image/jpeg" => ".jpg",
-            "image/png" => ".png",
-            "image/webp" => ".webp",
-            _ => throw new InvalidOperationException("Formato de imagen no permitido.")
-        };
-        var newStoragePath = $"workspaces/{workspaceId:N}/catalog/{itemId:N}/{Guid.NewGuid():N}{extension}";
-        var previousStoragePath = item.ImageStoragePath;
-
-        await _fileStorage.UploadAsync(newStoragePath, bufferedContent, contentType, cancellationToken);
+        await _fileStorage.UploadAsync(newStoragePath, image.Content, image.ContentType, cancellationToken);
 
         try
         {
+            if (primaryImage is null)
+            {
+                primaryImage = new WorkspaceCatalogItemImage
+                {
+                    Id = Guid.NewGuid(),
+                    CatalogItemId = item.Id,
+                    StoragePath = newStoragePath,
+                    ContentType = image.ContentType,
+                    IsPrimary = true,
+                    SortOrder = 0,
+                    CreatedAt = DateTime.UtcNow
+                };
+                item.Images.Add(primaryImage);
+            }
+            else
+            {
+                primaryImage.StoragePath = newStoragePath;
+                primaryImage.ContentType = image.ContentType;
+                primaryImage.IsPrimary = true;
+            }
+
             item.ImageStoragePath = newStoragePath;
             item.ImageUrl = null;
             item.UpdatedAt = DateTime.UtcNow;
@@ -258,10 +298,16 @@ public class WorkspaceContentService : IWorkspaceContentService
         await EnsureCanManageAsync(workspaceId, cancellationToken);
 
         var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
             .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
 
         if (item is null)
             return false;
+
+        var primaryImage = item.Images.FirstOrDefault(x => x.IsPrimary)
+            ?? item.Images.OrderBy(x => x.SortOrder).FirstOrDefault();
+        if (primaryImage is not null)
+            return await DeleteCatalogItemImageAsync(workspaceId, itemId, primaryImage.Id, cancellationToken) is not null;
 
         var storagePath = item.ImageStoragePath;
         item.ImageStoragePath = null;
@@ -269,6 +315,258 @@ public class WorkspaceContentService : IWorkspaceContentService
         item.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        if (!string.IsNullOrWhiteSpace(storagePath))
+            await _fileStorage.DeleteIfExistsAsync(storagePath, cancellationToken);
+
+        return true;
+    }
+
+    public async Task<WorkspaceCatalogItemDto?> AddCatalogItemImageAsync(
+        Guid workspaceId,
+        Guid itemId,
+        CatalogItemImageUpload upload,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureCanManageAsync(workspaceId, cancellationToken);
+
+        var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
+
+        if (item is null)
+            return null;
+        if (item.Images.Count >= MaxCatalogImages)
+            throw new InvalidOperationException("Cada producto o servicio puede tener maximo 5 imagenes.");
+
+        await using var image = await ReadValidatedImageAsync(upload, cancellationToken);
+        var storagePath = $"workspaces/{workspaceId:N}/catalog/{itemId:N}/{Guid.NewGuid():N}{image.Extension}";
+        await _fileStorage.UploadAsync(storagePath, image.Content, image.ContentType, cancellationToken);
+
+        var isPrimary = item.Images.Count == 0;
+        var entity = new WorkspaceCatalogItemImage
+        {
+            Id = Guid.NewGuid(),
+            CatalogItemId = item.Id,
+            StoragePath = storagePath,
+            ContentType = image.ContentType,
+            IsPrimary = isPrimary,
+            SortOrder = item.Images.Count == 0 ? 0 : item.Images.Max(x => x.SortOrder) + 1,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        item.Images.Add(entity);
+        if (isPrimary)
+        {
+            item.ImageStoragePath = storagePath;
+            item.ImageUrl = null;
+        }
+        item.UpdatedAt = DateTime.UtcNow;
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _fileStorage.DeleteIfExistsAsync(storagePath, cancellationToken);
+            throw;
+        }
+
+        return Map(item);
+    }
+
+    public async Task<CatalogItemImageContent?> GetCatalogItemImageAsync(
+        Guid workspaceId,
+        Guid itemId,
+        Guid imageId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureMemberAsync(workspaceId, cancellationToken);
+
+        var storagePath = await _dbContext.WorkspaceCatalogItemImages
+            .AsNoTracking()
+            .Where(x => x.Id == imageId
+                && x.CatalogItemId == itemId
+                && x.CatalogItem.WorkspaceId == workspaceId)
+            .Select(x => x.StoragePath)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(storagePath))
+            return null;
+
+        var storedFile = await _fileStorage.OpenReadAsync(storagePath, cancellationToken);
+        return storedFile is null
+            ? null
+            : new CatalogItemImageContent(storedFile.Content, storedFile.ContentType);
+    }
+
+    public async Task<WorkspaceCatalogItemDto?> SetPrimaryCatalogItemImageAsync(
+        Guid workspaceId,
+        Guid itemId,
+        Guid imageId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureCanManageAsync(workspaceId, cancellationToken);
+
+        var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
+        var selected = item?.Images.FirstOrDefault(x => x.Id == imageId);
+        if (item is null || selected is null)
+            return null;
+        if (selected.IsPrimary)
+            return Map(item);
+
+        foreach (var image in item.Images)
+            image.IsPrimary = false;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        selected.IsPrimary = true;
+        item.ImageStoragePath = selected.StoragePath;
+        item.ImageUrl = null;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Map(item);
+    }
+
+    public async Task<WorkspaceCatalogItemDto?> DeleteCatalogItemImageAsync(
+        Guid workspaceId,
+        Guid itemId,
+        Guid imageId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureCanManageAsync(workspaceId, cancellationToken);
+
+        var item = await _dbContext.WorkspaceCatalogItems
+            .Include(x => x.Images)
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.WorkspaceId == workspaceId, cancellationToken);
+        var image = item?.Images.FirstOrDefault(x => x.Id == imageId);
+        if (item is null || image is null)
+            return null;
+
+        var storagePath = image.StoragePath;
+        var wasPrimary = image.IsPrimary;
+        if (wasPrimary)
+        {
+            image.IsPrimary = false;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        item.Images.Remove(image);
+        var remaining = item.Images.OrderBy(x => x.SortOrder).ToList();
+
+        if (wasPrimary)
+        {
+            var replacement = remaining.FirstOrDefault();
+            if (replacement is not null)
+                replacement.IsPrimary = true;
+            item.ImageStoragePath = replacement?.StoragePath;
+            item.ImageUrl = null;
+        }
+
+        item.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _fileStorage.DeleteIfExistsAsync(storagePath, cancellationToken);
+
+        return Map(item);
+    }
+
+    private async Task<WorkspaceProfileDto?> UploadProfileImageAsync(
+        Guid workspaceId,
+        CatalogItemImageUpload upload,
+        bool isLogo,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCanManageAsync(workspaceId, cancellationToken);
+
+        var profile = await _dbContext.WorkspaceProfiles
+            .FirstOrDefaultAsync(x => x.WorkspaceId == workspaceId, cancellationToken);
+        if (profile is null)
+            return null;
+
+        await using var image = await ReadValidatedImageAsync(upload, cancellationToken);
+        var kind = isLogo ? "logo" : "cover";
+        var storagePath = $"workspaces/{workspaceId:N}/profile/{kind}/{Guid.NewGuid():N}{image.Extension}";
+        var previousStoragePath = isLogo ? profile.LogoStoragePath : profile.CoverImageStoragePath;
+        await _fileStorage.UploadAsync(storagePath, image.Content, image.ContentType, cancellationToken);
+
+        try
+        {
+            if (isLogo)
+            {
+                profile.LogoStoragePath = storagePath;
+                profile.LogoUrl = null;
+            }
+            else
+            {
+                profile.CoverImageStoragePath = storagePath;
+                profile.CoverImageUrl = null;
+            }
+
+            profile.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _fileStorage.DeleteIfExistsAsync(storagePath, cancellationToken);
+            throw;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previousStoragePath))
+            await _fileStorage.DeleteIfExistsAsync(previousStoragePath, cancellationToken);
+
+        return Map(profile);
+    }
+
+    private async Task<CatalogItemImageContent?> GetProfileImageAsync(
+        Guid workspaceId,
+        bool isLogo,
+        CancellationToken cancellationToken)
+    {
+        await EnsureMemberAsync(workspaceId, cancellationToken);
+
+        var profile = await _dbContext.WorkspaceProfiles
+            .AsNoTracking()
+            .Where(x => x.WorkspaceId == workspaceId)
+            .Select(x => new { x.LogoStoragePath, x.CoverImageStoragePath })
+            .FirstOrDefaultAsync(cancellationToken);
+        var storagePath = isLogo ? profile?.LogoStoragePath : profile?.CoverImageStoragePath;
+        if (string.IsNullOrWhiteSpace(storagePath))
+            return null;
+
+        var storedFile = await _fileStorage.OpenReadAsync(storagePath, cancellationToken);
+        return storedFile is null
+            ? null
+            : new CatalogItemImageContent(storedFile.Content, storedFile.ContentType);
+    }
+
+    private async Task<bool> DeleteProfileImageAsync(
+        Guid workspaceId,
+        bool isLogo,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCanManageAsync(workspaceId, cancellationToken);
+
+        var profile = await _dbContext.WorkspaceProfiles
+            .FirstOrDefaultAsync(x => x.WorkspaceId == workspaceId, cancellationToken);
+        if (profile is null)
+            return false;
+
+        var storagePath = isLogo ? profile.LogoStoragePath : profile.CoverImageStoragePath;
+        if (isLogo)
+        {
+            profile.LogoStoragePath = null;
+            profile.LogoUrl = null;
+        }
+        else
+        {
+            profile.CoverImageStoragePath = null;
+            profile.CoverImageUrl = null;
+        }
+
+        profile.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(storagePath))
             await _fileStorage.DeleteIfExistsAsync(storagePath, cancellationToken);
 
@@ -316,6 +614,8 @@ public class WorkspaceContentService : IWorkspaceContentService
         Description = profile.Description,
         LogoUrl = profile.LogoUrl,
         CoverImageUrl = profile.CoverImageUrl,
+        HasStoredLogo = !string.IsNullOrWhiteSpace(profile.LogoStoragePath),
+        HasStoredCoverImage = !string.IsNullOrWhiteSpace(profile.CoverImageStoragePath),
         Phone = profile.Phone,
         Email = profile.Email,
         WhatsApp = profile.WhatsApp,
@@ -343,7 +643,17 @@ public class WorkspaceContentService : IWorkspaceContentService
         Category = item.Category,
         PriceLabel = item.PriceLabel,
         ImageUrl = item.ImageUrl,
-        HasStoredImage = !string.IsNullOrWhiteSpace(item.ImageStoragePath),
+        HasStoredImage = item.Images.Count != 0 || !string.IsNullOrWhiteSpace(item.ImageStoragePath),
+        Images = item.Images
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new CatalogItemImageDto
+            {
+                Id = x.Id,
+                IsPrimary = x.IsPrimary,
+                SortOrder = x.SortOrder,
+                CreatedAt = x.CreatedAt
+            })
+            .ToList(),
         CtaLabel = item.CtaLabel,
         CtaUrl = item.CtaUrl,
         IsFeatured = item.IsFeatured,
@@ -377,6 +687,42 @@ public class WorkspaceContentService : IWorkspaceContentService
         return normalized;
     }
 
+    private static async Task<BufferedImage> ReadValidatedImageAsync(
+        CatalogItemImageUpload upload,
+        CancellationToken cancellationToken)
+    {
+        var contentType = NormalizeImageContentType(upload.ContentType);
+        if (upload.Length <= 0 || upload.Length > MaxImageBytes)
+            throw new InvalidOperationException("La imagen debe pesar entre 1 byte y 5 MB.");
+
+        var content = new MemoryStream((int)upload.Length);
+        try
+        {
+            await upload.Content.CopyToAsync(content, cancellationToken);
+            if (content.Length != upload.Length)
+                throw new InvalidOperationException("No fue posible leer la imagen completa.");
+
+            content.Position = 0;
+            ValidateImageSignature(content, contentType);
+            content.Position = 0;
+
+            var extension = contentType switch
+            {
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/webp" => ".webp",
+                _ => throw new InvalidOperationException("Formato de imagen no permitido.")
+            };
+
+            return new BufferedImage(content, contentType, extension);
+        }
+        catch
+        {
+            await content.DisposeAsync();
+            throw;
+        }
+    }
+
     private static void ValidateImageSignature(Stream content, string contentType)
     {
         Span<byte> header = stackalloc byte[12];
@@ -396,5 +742,13 @@ public class WorkspaceContentService : IWorkspaceContentService
 
         if (!valid)
             throw new InvalidOperationException("El contenido del archivo no corresponde a una imagen valida.");
+    }
+
+    private sealed record BufferedImage(
+        MemoryStream Content,
+        string ContentType,
+        string Extension) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => Content.DisposeAsync();
     }
 }
